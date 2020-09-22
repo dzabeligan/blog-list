@@ -32,20 +32,17 @@ blogsRouter.post('/', async (request, response) => {
     user: user._id,
   })
 
+  blog.user = user
   const savedBlog = await blog.save()
+
+  user.blogs = user.blogs.concat(savedBlog._id)
+  await user.save()
+
   response.status(201).json(savedBlog)
 })
 
 blogsRouter.put('/:id', async (request, response) => {
-  const body = request.body
-
-  const blog = {
-    title: body.title,
-    author: body.author,
-    url: body.url,
-    likes: body.likes,
-    user: body.user,
-  }
+  const blog = request.body
 
   const updatedBlog = await Blog.findByIdAndUpdate(request.params.id, blog, { new: true })
   response.json(updatedBlog)
@@ -58,18 +55,15 @@ blogsRouter.delete('/:id', async (request, response) => {
     return response.status(401).json({ error: 'token missing or invalid' })
   }
 
-  const userId = await Blog.findById(request.params.id).user
-
-  if (userId.toString() !== decodedToken.id.toString()) {
-    return response
-      .status(401)
-      .json({
-        error: 'a blog can only be deleted by the user who added the blog',
-      })
+  const user = await User.findById(decodedToken.id)
+  const blog = await Blog.findById(request.params.id)
+  if (blog.user.toString() !== user.id.toString()) {
+    return response.status(401).json({ error: 'only the creator can delete blogs' })
   }
 
-  await Blog.findByIdAndRemove(request.params.id)
-
+  await blog.remove()
+  user.blogs = user.blogs.filter(b => b.id.toString() !== request.params.id.toString())
+  await user.save()
   response.status(204).end()
 })
 
