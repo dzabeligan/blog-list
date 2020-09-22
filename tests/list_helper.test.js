@@ -142,6 +142,7 @@ describe('most likes', () => {
     const result = listHelper.mostLikes([])
     expect(result).toEqual(null)
   })
+
   test('when list has only one blog equals the likes of that', () => {
     const result = listHelper.mostLikes(listWithOneBlog)
     expect(result).toEqual({
@@ -149,6 +150,7 @@ describe('most likes', () => {
       likes: 7
     })
   })
+
   test('of a bigger list is calculated right', () => {
     const result = listHelper.mostLikes(blogs)
     expect(result).toEqual({

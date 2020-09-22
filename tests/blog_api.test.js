@@ -6,6 +6,7 @@ const app = require('../app')
 const api = supertest(app)
 
 const Blog = require('../models/blog')
+const User = require('../models/user')
 
 beforeEach(async () => {
   await Blog.deleteMany({})
@@ -183,6 +184,119 @@ describe('deleting a blog', () => {
 
     const blogsAtEnd = await helper.blogsInDb()
     expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length)
+  })
+})
+
+describe('User model', () => {
+  beforeEach(async () => {
+    await User.deleteMany({})
+    const user = new User({ username: 'username', password: 'password' })
+    const user2 = new User({ username: 'root', password: 'sekret' })
+    await user.save()
+    await user2.save()
+  })
+
+  describe('getting users', () => {
+    test('users are returned as json', async () => {
+      await api
+        .get('/api/users')
+        .expect(200)
+        .expect('Content-Type', /application\/json/)
+    })
+
+    test('there are two users', async () => {
+      const response = await api.get('/api/users')
+      expect(response.body).toHaveLength(2)
+    })
+
+    test('the unique identifier property of the user is named id', async () => {
+      const response = await api.get('/api/users')
+      expect(response.body[0].id).toBeDefined()
+    })
+  })
+
+  describe('creating users', () => {
+    test('creating user succeeds with a new username', async () => {
+      const usersAtStart = await helper.usersInDb()
+
+      const newUser = {
+        username: 'dzabeligan',
+        name: 'Elijah Balogun',
+        password: 'testthepassword',
+      }
+
+      await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(201)
+        .expect('Content-Type', /application\/json/)
+
+      const usersAtEnd = await helper.usersInDb()
+      expect(usersAtEnd).toHaveLength(usersAtStart.length + 1)
+
+      const usernames = usersAtEnd.map(user => user.username)
+      expect(usernames).toContain(newUser.username)
+    })
+
+    test('creating user fails if username exists', async () => {
+      const usersAtStart = await helper.usersInDb()
+
+      const newUser = {
+        username: 'root',
+        name: 'Iam Root',
+        password: 'thisdoesnotmatter',
+      }
+
+      const result = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+        .expect('Content-Type', /application\/json/)
+
+      expect(result.body.error).toContain('`username` to be unique')
+
+      const usersAtEnd = await helper.usersInDb()
+      expect(usersAtEnd).toHaveLength(usersAtStart.length)
+    })
+
+    test('creating user fails if username is less than 3 characters long', async () => {
+      const usersAtStart = await helper.usersInDb()
+
+      const newUser = {
+        username: 'dn',
+        name: 'Elijah Balogun',
+        password: 'testthepassword',
+      }
+
+      const result = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+        .expect('Content-Type', /application\/json/)
+
+      expect(result.body.error).toContain('is shorter than the minimum allowed length (3)')
+
+      const usersAtEnd = await helper.usersInDb()
+      expect(usersAtEnd).toHaveLength(usersAtStart.length)
+    })
+
+    test('creation fails if password is less than 3 characters long', async () => {
+      const usersAtStart = await helper.usersInDb()
+
+      const newUser = {
+        username: 'dzabeligan',
+        name: 'Elijah Balogun',
+        password: 'td',
+      }
+
+      await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+
+      const usersAtEnd = await helper.usersInDb()
+      expect(usersAtEnd).toHaveLength(usersAtStart.length)
+    })
   })
 })
 
